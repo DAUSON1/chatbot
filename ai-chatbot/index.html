@@ -1,101 +1,138 @@
 <!DOCTYPE html>
-<html lang="sw">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <title>AI Chatbot</title>
   <style>
-    body { font-family: Arial; background: #f5f5f5; display: flex; justify-content:center; align-items:center; height:100vh; margin:0;}
-    .chat-container { width:420px; background:white; border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,.1); display:flex; flex-direction:column; overflow:hidden; }
-    .chat-box { flex:1; padding:10px; overflow-y:auto; }
-    .user { text-align:right; margin:6px 0; color:#1d4ed8; }
-    .bot { text-align:left; margin:6px 0; color:#16a34a; }
-    .input-container { display:flex; border-top:1px solid #ddd; }
-    input { flex:1; padding:10px; border:none; outline:none; }
-    button { background:#007bff; color:#fff; border:0; padding:10px 14px; cursor:pointer; }
-    button:disabled { opacity:.6; cursor:not-allowed; }
-    button:hover { background:#0056b3; }
-    .status { font-size:12px; color:#555; padding:6px 10px; border-top:1px solid #eee; background:#fafafa; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #f0f2f5;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .chat-container {
+      width: 400px;
+      height: 600px;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .chat-header {
+      padding: 12px;
+      background: #0084ff;
+      color: white;
+      text-align: center;
+      font-weight: bold;
+    }
+    .chat-box {
+      flex: 1;
+      padding: 15px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+    .msg {
+      max-width: 70%;
+      margin: 5px 0;
+      padding: 10px 15px;
+      border-radius: 18px;
+      line-height: 1.4;
+      word-wrap: break-word;
+    }
+    .user {
+      align-self: flex-end;
+      background: #0084ff;
+      color: white;
+      border-bottom-right-radius: 2px;
+    }
+    .bot {
+      align-self: flex-start;
+      background: #e4e6eb;
+      color: black;
+      border-bottom-left-radius: 2px;
+    }
+    .chat-input {
+      display: flex;
+      border-top: 1px solid #ddd;
+    }
+    .chat-input input {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      outline: none;
+    }
+    .chat-input button {
+      padding: 12px 18px;
+      border: none;
+      background: #0084ff;
+      color: white;
+      cursor: pointer;
+    }
+    .chat-input button:hover {
+      background: #006bbf;
+    }
   </style>
 </head>
 <body>
   <div class="chat-container">
-    <div id="chatBox" class="chat-box"></div>
-    <div class="input-container">
-      <input type="text" id="userInput" placeholder="Andika ujumbe..." />
-      <button id="sendBtn" onclick="sendMessage()">Tuma</button>
-    </div>
-    <div id="status" class="status">Ready</div>
+    <div class="chat-header">🤖 AI Chatbot</div>
+    <div id="chat-box" class="chat-box"></div>
+    <form id="chat-form" class="chat-input">
+      <input type="text" id="message" placeholder="Type a message..." required>
+      <button type="submit">Send</button>
+    </form>
   </div>
 
-<script>
-const ENDPOINT = '/ai-chatbot/backend/chatbot.php';
-const HISTORY = '/ai-chatbot/backend/history.php';
+  <script>
+    const chatBox = document.getElementById("chat-box");
+    const chatForm = document.getElementById("chat-form");
+    const messageInput = document.getElementById("message");
 
-const chatBox = document.getElementById('chatBox');
-const input = document.getElementById('userInput');
-const sendBtn = document.getElementById('sendBtn');
-const statusEl = document.getElementById('status');
-
-input.addEventListener('keydown', e => { if(e.key==='Enter') sendMessage(); });
-
-async function loadHistory() {
-  try {
-    const res = await fetch(HISTORY);
-    const chats = await res.json();
-    chatBox.innerHTML = "";
-    chats.forEach(c => {
-      chatBox.innerHTML += `<div class="user"><b>You:</b> ${c.user_message}</div>`;
-      chatBox.innerHTML += `<div class="bot"><b>Bot:</b> ${c.bot_reply}</div>`;
+    // Auto-scroll
+    const observer = new MutationObserver(() => {
+      chatBox.scrollTop = chatBox.scrollHeight;
     });
-    chatBox.scrollTop = chatBox.scrollHeight;
-  } catch(err) {
-    console.error(err);
-  }
-}
+    observer.observe(chatBox, { childList: true });
 
-async function sendMessage() {
-  const message = input.value.trim();
-  if(!message) return;
+    // Show welcome message
+    window.onload = () => {
+      addMessage("Habari! Naomba uniulize chochote. 😊", "bot");
+    };
 
-  appendMsg('user', `You: ${message}`);
-  input.value='';
-  disableSend(true);
-  statusEl.textContent='Inatuma...';
+    // Add message to chat box
+    function addMessage(text, sender) {
+      const msg = document.createElement("div");
+      msg.classList.add("msg", sender);
+      msg.textContent = text;
+      chatBox.appendChild(msg);
+    }
 
-  try {
-    const res = await fetch(ENDPOINT, {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({message})
-    });
+    // Form submit
+    chatForm.onsubmit = async (e) => {
+      e.preventDefault();
+      const userMessage = messageInput.value;
+      addMessage(userMessage, "user");
+      messageInput.value = "";
 
-    if(!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    const botReply = data.reply ?? '(hakuna reply)';
-    appendMsg('bot', `Bot: ${botReply}`);
-  } catch(err) {
-    appendMsg('bot', `Hitilafu: ${err.message}`);
-  } finally {
-    disableSend(false);
-    statusEl.textContent='Ready';
-  }
-}
-
-function appendMsg(role,text){
-  const div=document.createElement('div');
-  div.className=role;
-  div.innerHTML=text;
-  chatBox.appendChild(div);
-  chatBox.scrollTop = chatBox.scrollHeight;
-}
-
-function disableSend(state){
-  sendBtn.disabled=state;
-  input.disabled=state;
-}
-
-// Load history on page load
-window.onload = loadHistory;
-</script>
+      // Send message to chatbot.php via AJAX
+      try {
+        const res = await fetch("chatbot.php", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: "message=" + encodeURIComponent(userMessage)
+        });
+        const data = await res.json();
+        addMessage(data.reply, "bot");
+      } catch (err) {
+        addMessage("⚠️ Hitilafu kwenye server.", "bot");
+      }
+    };
+  </script>
 </body>
 </html>
